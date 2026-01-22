@@ -323,7 +323,7 @@ class RedisCacheService(CacheProtocol[T]):
             CACHE_HIT_COUNT.labels(level="L2").inc()
             self._healthy = True
             logger.debug("L2 cache hit", key=key)
-            return value
+            return value  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.warning(

@@ -125,7 +125,7 @@ def create_app() -> FastAPI:
 
     # Register middleware for request ID tracking
     @app.middleware("http")
-    async def add_request_id_middleware(request: Request, call_next):
+    async def add_request_id_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
         """Add request ID to logs and response headers for tracing.
 
         This middleware:

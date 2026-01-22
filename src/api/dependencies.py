@@ -119,7 +119,7 @@ async def init_services(settings: Settings) -> None:
     )
 
     # Initialize L2 cache (Redis) if configured
-    if settings.is_redis_enabled:
+    if settings.is_redis_enabled and settings.redis_url:
         _l2_cache = RedisCacheService[ClassifyResult](
             redis_url=settings.redis_url,
             ttl_seconds=settings.cache_l2_ttl_sec,

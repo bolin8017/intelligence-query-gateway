@@ -114,7 +114,7 @@ class SemanticRouter:
             self._model = AutoModelForSequenceClassification.from_pretrained(
                 str(self.model_path)
             )
-            self._model.to(self.device)
+            self._model.to(self.device)  # type: ignore[arg-type]
             self._model.eval()
 
             self._is_loaded = True
@@ -158,7 +158,7 @@ class SemanticRouter:
         Raises:
             RuntimeError: If model is not loaded.
         """
-        if not self._is_loaded:
+        if not self._is_loaded or self._model is None or self._tokenizer is None:
             raise RuntimeError("Model not loaded. Call load() first.")
 
         if not texts:

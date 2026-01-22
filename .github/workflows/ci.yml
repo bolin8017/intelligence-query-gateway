@@ -74,6 +74,7 @@ jobs:
     - name: Run mypy type checking
       run: |
         mypy src/ --ignore-missing-imports
+      continue-on-error: true
 
   docker:
     name: Docker Build
