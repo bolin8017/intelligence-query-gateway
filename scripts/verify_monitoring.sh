@@ -8,12 +8,49 @@
 # - Grafana configuration
 # - Alert rules loading
 # =============================================================================
+#
+# Usage:
+#   ./verify_monitoring.sh                    # Auto-detect environment
+#   GATEWAY_PORT=8000 ./verify_monitoring.sh  # Local development
+#   GATEWAY_PORT=8080 ./verify_monitoring.sh  # Docker Compose
+#
+# Environment Variables:
+#   GATEWAY_PORT       - Gateway API port (default: auto-detect)
+#   PROMETHEUS_PORT    - Prometheus port (default: 9090)
+#   GRAFANA_PORT       - Grafana port (default: 3000)
+# =============================================================================
 
 set -e
+
+# =============================================================================
+# Configuration
+# =============================================================================
+# Auto-detect environment: check if running in Docker Compose
+if docker compose ps gateway 2>/dev/null | grep -q "Up"; then
+    # Docker Compose environment (gateway exposed on host:8080 -> container:8000)
+    DEFAULT_GATEWAY_PORT=8080
+    ENVIRONMENT="Docker Compose"
+elif curl -sf http://localhost:8000/health/live >/dev/null 2>&1; then
+    # Local development (direct access to port 8000)
+    DEFAULT_GATEWAY_PORT=8000
+    ENVIRONMENT="Local"
+else
+    # Fallback to Docker Compose port
+    DEFAULT_GATEWAY_PORT=8080
+    ENVIRONMENT="Unknown (assuming Docker Compose)"
+fi
+
+# Allow environment variable override
+GATEWAY_PORT="${GATEWAY_PORT:-$DEFAULT_GATEWAY_PORT}"
+PROMETHEUS_PORT="${PROMETHEUS_PORT:-9090}"
+GRAFANA_PORT="${GRAFANA_PORT:-3000}"
 
 echo "============================================="
 echo " Intelligence Query Gateway"
 echo " Monitoring Stack Verification"
+echo "============================================="
+echo " Environment: $ENVIRONMENT"
+echo " Gateway Port: $GATEWAY_PORT"
 echo "============================================="
 echo ""
 
@@ -21,6 +58,7 @@ echo ""
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 success() {
@@ -71,7 +109,7 @@ echo ""
 # 2. Check Gateway Health
 # =============================================================================
 echo "[2] Checking Gateway Health..."
-HEALTH_RESPONSE=$(curl -s http://localhost:8000/health/ready)
+HEALTH_RESPONSE=$(curl -s http://localhost:$GATEWAY_PORT/health/ready)
 if echo "$HEALTH_RESPONSE" | grep -q "\"status\":\"healthy\""; then
     success "Gateway is healthy and ready"
 else
@@ -79,7 +117,7 @@ else
 fi
 
 # Check deep health endpoint
-DEEP_HEALTH=$(curl -s http://localhost:8000/health/deep)
+DEEP_HEALTH=$(curl -s http://localhost:$GATEWAY_PORT/health/deep)
 if echo "$DEEP_HEALTH" | grep -q "\"model\""; then
     success "Deep health check endpoint is working"
 else
@@ -92,7 +130,7 @@ echo ""
 # =============================================================================
 echo "[3] Checking Metrics Endpoint..."
 # Note: FastAPI mount requires trailing slash
-METRICS_RESPONSE=$(curl -sL http://localhost:8000/metrics/)
+METRICS_RESPONSE=$(curl -sL http://localhost:$GATEWAY_PORT/metrics/)
 if echo "$METRICS_RESPONSE" | grep -q "query_gateway"; then
     success "Metrics endpoint is exposing Gateway metrics"
 
@@ -108,7 +146,7 @@ echo ""
 # 4. Check Prometheus
 # =============================================================================
 echo "[4] Checking Prometheus..."
-PROM_HEALTH=$(curl -s http://localhost:9090/-/healthy)
+PROM_HEALTH=$(curl -s http://localhost:$PROMETHEUS_PORT/-/healthy)
 if echo "$PROM_HEALTH" | grep -q "Healthy"; then
     success "Prometheus is healthy"
 else
@@ -116,7 +154,7 @@ else
 fi
 
 # Check if Prometheus can scrape Gateway
-UP_QUERY=$(curl -s 'http://localhost:9090/api/v1/query?query=up')
+UP_QUERY=$(curl -s "http://localhost:$PROMETHEUS_PORT/api/v1/query?query=up")
 if echo "$UP_QUERY" | grep -q "\"job\":\"query-gateway\""; then
     UP_VALUE=$(echo "$UP_QUERY" | python3 -c "import sys, json; data=json.load(sys.stdin); result=[r for r in data['data']['result'] if r['metric']['job']=='query-gateway']; print(result[0]['value'][1] if result else '0')" 2>/dev/null || echo "0")
 
@@ -134,7 +172,7 @@ echo ""
 # 5. Check Alert Rules
 # =============================================================================
 echo "[5] Checking Alert Rules..."
-RULES_RESPONSE=$(curl -s 'http://localhost:9090/api/v1/rules')
+RULES_RESPONSE=$(curl -s "http://localhost:$PROMETHEUS_PORT/api/v1/rules")
 GROUPS_COUNT=$(echo "$RULES_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data['data']['groups']))" 2>/dev/null || echo "0")
 
 if [ "$GROUPS_COUNT" -ge "5" ]; then
@@ -156,7 +194,7 @@ echo ""
 # 6. Check Grafana
 # =============================================================================
 echo "[6] Checking Grafana..."
-GRAFANA_HEALTH=$(curl -s http://localhost:3000/api/health)
+GRAFANA_HEALTH=$(curl -s http://localhost:$GRAFANA_PORT/api/health)
 if echo "$GRAFANA_HEALTH" | grep -q "\"database\":\"ok\""; then
     success "Grafana is healthy"
 else
@@ -164,7 +202,7 @@ else
 fi
 
 # Check datasource
-DATASOURCES=$(curl -s -u admin:admin http://localhost:3000/api/datasources)
+DATASOURCES=$(curl -s -u admin:admin http://localhost:$GRAFANA_PORT/api/datasources)
 if echo "$DATASOURCES" | grep -q "\"name\":\"Prometheus\""; then
     success "Prometheus datasource is configured"
 else
@@ -178,7 +216,7 @@ echo ""
 echo "[7] Generating Test Metrics..."
 echo "    Sending 5 test requests to Gateway..."
 for i in {1..5}; do
-    curl -s -X POST http://localhost:8000/v1/query-classify \
+    curl -s -X POST http://localhost:$GATEWAY_PORT/v1/query-classify \
       -H "Content-Type: application/json" \
       -d "{\"text\": \"Verification test query number $i\"}" > /dev/null
 done
@@ -188,7 +226,7 @@ echo "    Waiting 10 seconds for metrics to be scraped..."
 sleep 10
 
 # Verify metrics were collected
-REQUESTS_TOTAL=$(curl -s 'http://localhost:9090/api/v1/query?query=query_gateway_requests_total' | python3 -c "
+REQUESTS_TOTAL=$(curl -s "http://localhost:$PROMETHEUS_PORT/api/v1/query?query=query_gateway_requests_total" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -216,20 +254,24 @@ echo " Verification Complete! ✓"
 echo "============================================="
 echo ""
 echo "Access URLs:"
-echo "  - Gateway API:  http://localhost:8000"
-echo "  - Swagger Docs: http://localhost:8000/docs"
-echo "  - Metrics:      http://localhost:8000/metrics"
-echo "  - Prometheus:   http://localhost:9090"
-echo "  - Grafana:      http://localhost:3000 (admin/admin)"
+echo "  - Gateway API:  http://localhost:$GATEWAY_PORT"
+echo "  - Swagger Docs: http://localhost:$GATEWAY_PORT/docs"
+echo "  - Metrics:      http://localhost:$GATEWAY_PORT/metrics/"
+echo "  - Prometheus:   http://localhost:$PROMETHEUS_PORT"
+echo "  - Grafana:      http://localhost:$GRAFANA_PORT (admin/admin)"
+echo ""
+echo "Environment Details:"
+echo "  - Detected:     $ENVIRONMENT"
+echo "  - Gateway Port: $GATEWAY_PORT"
 echo ""
 echo "Next steps:"
-echo "  1. Open Grafana: http://localhost:3000"
+echo "  1. Open Grafana: http://localhost:$GRAFANA_PORT"
 echo "  2. Navigate to Dashboards → Query Gateway - Overview"
 echo "  3. Generate more load: tests/load/locustfile.py"
-echo "  4. Check alerts: http://localhost:9090/alerts"
+echo "  4. Check alerts: http://localhost:$PROMETHEUS_PORT/alerts"
 echo ""
 echo "For more information, see:"
 echo "  - monitoring/README.md"
-echo "  - docs/PHASE5_MONITORING_GUIDE.md"
-echo "  - docs/RUNBOOK.md"
+echo "  - docs/operations/monitoring.md"
+echo "  - docs/operations/runbook.md"
 echo ""
