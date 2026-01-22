@@ -1,0 +1,278 @@
+version: '3.8'
+
+# ============================================================================
+# Docker Compose Configuration for Intelligence Query Gateway
+# ============================================================================
+#
+# Usage:
+#   Development: docker compose up
+#   With Redis:  docker compose --profile with-redis up
+#   Build:       docker compose build
+#   Clean:       docker compose down -v
+#
+# ============================================================================
+
+services:
+  # Main application service
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: query-gateway:latest
+    container_name: query-gateway
+
+    # Port mapping: host:container
+    ports:
+      - "8080:8000"
+
+    # Volume mounts
+    volumes:
+      # Mount local models directory (for development)
+      # In production, models can be baked into image or use cloud storage
+      - ./models:/app/models:ro
+
+      # Optional: Mount logs directory for persistence
+      - ./logs:/app/logs
+
+    # Environment variables (can also use .env file)
+    environment:
+      # Application
+      - APP_ENV=dev
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - APP_DEBUG=false
+
+      # Model
+      - MODEL_PATH=/app/models/router
+      - MODEL_DEVICE=cpu
+
+      # Batching
+      - BATCH_MAX_SIZE=32
+      - BATCH_MAX_WAIT_MS=10
+
+      # Cache (L1)
+      - CACHE_L1_SIZE=10000
+      - CACHE_L1_TTL_SEC=300
+
+      # Logging
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+
+      # Confidence routing
+      - CONFIDENCE_THRESHOLD=0.7
+
+      # Redis L2 Cache (uses redis service below)
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_L2_TTL_SEC=3600
+
+    # Use env_file for production (uncomment as needed)
+    # env_file:
+    #   - .env.production
+
+    # Health check configuration
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+    # Depends on Redis if profile is active
+    # depends_on:
+    #   redis:
+    #     condition: service_healthy
+    #     required: false
+
+    # Service dependencies
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    # Network configuration
+    networks:
+      - monitoring
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis service for L2 cache
+  redis:
+    image: redis:7-alpine
+    container_name: query-gateway-redis
+
+    ports:
+      - "6379:6379"
+
+    # Redis configuration optimized for cache use case
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+    restart: unless-stopped
+
+    networks:
+      - monitoring
+
+    # Optional: Persist Redis data (uncomment for persistence)
+    # volumes:
+    #   - redis-data:/data
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Prometheus - Metrics Collection & Alerting
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: query-gateway-prometheus
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      # Configuration files
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+
+      # Data persistence
+      - prometheus-data:/prometheus
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+    restart: unless-stopped
+
+    depends_on:
+      - gateway
+
+    networks:
+      - monitoring
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # Grafana - Metrics Visualization & Dashboards
+  # ============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: query-gateway-grafana
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      # Grafana data persistence
+      - grafana-data:/var/lib/grafana
+
+      # Provisioning configurations (auto-setup datasources and dashboards)
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+
+      # Dashboard JSON files
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    environment:
+      # Security settings
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+      # Server settings
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_SERVER_SERVE_FROM_SUB_PATH=false
+
+      # Analytics (disable for privacy)
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+
+      # Logging
+      - GF_LOG_LEVEL=info
+
+    restart: unless-stopped
+
+    depends_on:
+      - prometheus
+
+    networks:
+      - monitoring
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  monitoring:
+    driver: bridge
+    name: query-gateway-monitoring
+
+# =============================================================================
+# Volumes for Data Persistence
+# =============================================================================
+volumes:
+  # Prometheus time-series data
+  prometheus-data:
+    driver: local
+
+  # Grafana configuration and dashboards
+  grafana-data:
+    driver: local
+
+  # Optional: Redis data (uncomment if using Redis with persistence)
+  # redis-data:
+  #   driver: local
