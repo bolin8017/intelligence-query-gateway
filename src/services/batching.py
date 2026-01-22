@@ -242,7 +242,7 @@ class BatchingService:
                 )
                 batch.append(request)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Timeout waiting for next request
                 break
 
@@ -266,7 +266,7 @@ class BatchingService:
 
             # Distribute results to futures and record wait times
             current_time = time.perf_counter()
-            for request, result in zip(batch, results):
+            for request, result in zip(batch, results, strict=False):
                 # Calculate and record wait time
                 wait_time = current_time - request.enqueue_time
                 BATCH_WAIT_TIME.observe(wait_time)

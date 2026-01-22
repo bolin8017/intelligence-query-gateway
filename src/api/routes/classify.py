@@ -12,7 +12,12 @@ from fastapi.responses import JSONResponse
 from src.api.dependencies import BatchingDep, CacheDep, get_settings
 from src.api.schemas import ClassifyRequest, ClassifyResponseSpec
 from src.core.logging import get_logger
-from src.core.metrics import ACTIVE_REQUESTS, REQUEST_COUNT, REQUEST_LATENCY, CONFIDENCE_ROUTING_COUNT
+from src.core.metrics import (
+    ACTIVE_REQUESTS,
+    CONFIDENCE_ROUTING_COUNT,
+    REQUEST_COUNT,
+    REQUEST_LATENCY,
+)
 from src.utils.hashing import generate_cache_key
 
 logger = get_logger(__name__)

@@ -6,11 +6,10 @@ for authentic load testing scenarios.
 
 import random
 import string
-from typing import List, Tuple, Optional
 
 # Global cache for loaded dataset
-_FAST_PATH_QUERIES: Optional[List[str]] = None
-_SLOW_PATH_QUERIES: Optional[List[str]] = None
+_FAST_PATH_QUERIES: list[str] | None = None
+_SLOW_PATH_QUERIES: list[str] | None = None
 _DATASET_LOADED = False
 
 
@@ -138,7 +137,7 @@ def generate_slow_path_query() -> str:
     return random.choice(_SLOW_PATH_QUERIES)
 
 
-def generate_query_with_expected_label() -> Tuple[str, int]:
+def generate_query_with_expected_label() -> tuple[str, int]:
     """Generate a query with its expected label.
 
     Returns:
@@ -155,7 +154,7 @@ def generate_query_with_expected_label() -> Tuple[str, int]:
 def generate_query_batch(
     size: int,
     cache_hit_ratio: float = 0.3,
-) -> List[str]:
+) -> list[str]:
     """Generate a batch of queries with specified cache hit ratio.
 
     Args:
@@ -174,7 +173,7 @@ def generate_query_batch(
     return queries
 
 
-def get_common_queries() -> List[str]:
+def get_common_queries() -> list[str]:
     """Get the list of common queries for cache testing.
 
     Returns:
@@ -184,7 +183,7 @@ def get_common_queries() -> List[str]:
     return _FAST_PATH_QUERIES[:10] + _SLOW_PATH_QUERIES[:10]
 
 
-def get_fast_path_queries() -> List[str]:
+def get_fast_path_queries() -> list[str]:
     """Get all Fast Path queries from Dolly dataset.
 
     Returns:
@@ -194,7 +193,7 @@ def get_fast_path_queries() -> List[str]:
     return _FAST_PATH_QUERIES.copy()
 
 
-def get_slow_path_queries() -> List[str]:
+def get_slow_path_queries() -> list[str]:
     """Get all Slow Path queries from Dolly dataset.
 
     Returns:
@@ -223,7 +222,7 @@ if __name__ == "__main__":
     # Quick test when run directly
     print("Loading dataset...")
     stats = get_dataset_stats()
-    print(f"\nDataset Statistics:")
+    print("\nDataset Statistics:")
     print(f"  Fast Path queries: {stats['fast_path_count']}")
     print(f"  Slow Path queries: {stats['slow_path_count']}")
     print(f"  Total: {stats['total_count']}")

@@ -117,8 +117,11 @@ def app_with_mocked_model(mock_semantic_router):
     Returns:
         FastAPI application instance configured for testing.
     """
+    from src.api.dependencies import (
+        get_cache_service,
+        get_classifier_service,
+    )
     from src.main import app
-    from src.api.dependencies import get_classifier_service, get_batching_service, get_cache_service
 
     classifier = ClassifierService(model=mock_semantic_router)
     cache = CacheService(max_size=100, ttl_seconds=300)

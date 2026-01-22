@@ -143,6 +143,7 @@ class TestBatchingServiceIntegration:
     async def test_batching_error_propagation(self, classifier_service):
         """Batching propagates classifier errors to all requests in batch."""
         from unittest.mock import Mock
+
         from src.services.batching import BatchingService
 
         classifier_service.classify_batch = Mock(
@@ -166,7 +167,6 @@ class TestBatchingServiceIntegration:
 
     async def test_batching_queue_size_tracking(self, batching_service):
         """BatchingService tracks queue size correctly."""
-        initial_size = batching_service.queue_size
 
         task = asyncio.create_task(batching_service.classify("Query"))
 

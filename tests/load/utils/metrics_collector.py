@@ -5,7 +5,6 @@ from the Query Gateway service during load testing.
 """
 
 import re
-from typing import Dict, Optional
 
 import requests
 
@@ -13,7 +12,7 @@ import requests
 def collect_prometheus_metrics(
     url: str = "http://localhost:8000/metrics",
     timeout: int = 5,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Collect metrics from Prometheus endpoint.
 
     Args:
@@ -53,7 +52,7 @@ def collect_prometheus_metrics(
     return metrics
 
 
-def calculate_cache_hit_rate(metrics: Dict[str, float]) -> float:
+def calculate_cache_hit_rate(metrics: dict[str, float]) -> float:
     """Calculate cache hit rate from metrics.
 
     Args:
@@ -72,7 +71,7 @@ def calculate_cache_hit_rate(metrics: Dict[str, float]) -> float:
     return (hits / total) * 100
 
 
-def calculate_average_batch_size(metrics: Dict[str, float]) -> float:
+def calculate_average_batch_size(metrics: dict[str, float]) -> float:
     """Calculate average batch size from metrics.
 
     Args:
@@ -92,7 +91,7 @@ def calculate_average_batch_size(metrics: Dict[str, float]) -> float:
 
 def get_metrics_summary(
     url: str = "http://localhost:8000/metrics",
-) -> Optional[Dict[str, any]]:
+) -> dict[str, any] | None:
     """Get a summary of key performance metrics.
 
     Args:

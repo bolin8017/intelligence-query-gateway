@@ -5,11 +5,11 @@ request processing, and graceful shutdown behavior.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
-from src.services.batching import BatchRequest, BatchingService
+from src.services.batching import BatchingService, BatchRequest
 from src.services.classifier import ClassifierService, ClassifyResult
 
 
@@ -171,7 +171,7 @@ class TestBatchingServiceClassify:
 
         try:
             await asyncio.wait_for(task, timeout=1.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             task.cancel()
 
     async def test_classify_returns_result_from_batch_processing(self):

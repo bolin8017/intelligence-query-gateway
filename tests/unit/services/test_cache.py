@@ -4,7 +4,6 @@ Tests cover LRU eviction, TTL expiration, cache hit/miss behavior,
 and size management without actual I/O or time dependencies.
 """
 
-import time
 from unittest.mock import patch
 
 import pytest

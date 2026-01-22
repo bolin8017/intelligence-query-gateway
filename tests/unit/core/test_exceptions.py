@@ -4,7 +4,6 @@ Tests cover exception initialization, error response formatting,
 HTTP status codes, and error status enums following Google API conventions.
 """
 
-import pytest
 
 from src.core.exceptions import (
     CacheError,

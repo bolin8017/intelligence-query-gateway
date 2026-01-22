@@ -9,7 +9,8 @@ Usage:
         --html=reports/stress_test_report.html --csv=reports/stress_test
 """
 
-from locust import HttpUser, task, between
+from locust import HttpUser, between, task
+
 from tests.load.utils.data_generator import generate_common_query, generate_unique_query
 
 

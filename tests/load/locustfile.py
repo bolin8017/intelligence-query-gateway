@@ -17,8 +17,8 @@ Usage:
 """
 
 import random
-from locust import HttpUser, task, between, events
 
+from locust import HttpUser, between, events, task
 from utils.data_generator import (
     generate_common_query,
     generate_unique_query,

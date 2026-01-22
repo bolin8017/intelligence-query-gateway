@@ -10,7 +10,9 @@ Usage:
 """
 
 import random
-from locust import HttpUser, task, between
+
+from locust import HttpUser, between, task
+
 from tests.load.utils.data_generator import get_common_queries
 
 

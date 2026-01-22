@@ -4,6 +4,7 @@ This service provides the high-level interface for classifying queries,
 orchestrating the model inference and result formatting.
 """
 
+import time
 from dataclasses import dataclass
 
 from src.core.exceptions import ModelNotReadyError
@@ -15,8 +16,6 @@ from src.core.metrics import (
     INFERENCE_LATENCY,
 )
 from src.models.semantic_router import ClassificationResult, SemanticRouter
-
-import time
 
 logger = get_logger(__name__)
 

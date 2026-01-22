@@ -5,7 +5,7 @@ GET /health/ready - Readiness probe (is the service ready to accept traffic?)
 GET /health/deep - Deep health check with detailed metrics (not for K8s probes)
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Response, status
 
@@ -96,7 +96,7 @@ async def readiness(response: Response) -> HealthResponse:
         200: {"description": "Detailed health check with metrics"},
     },
 )
-async def deep_health_check() -> Dict[str, Any]:
+async def deep_health_check() -> dict[str, Any]:
     """Deep health check with detailed system metrics.
 
     This endpoint provides comprehensive system diagnostics including:
@@ -112,7 +112,7 @@ async def deep_health_check() -> Dict[str, Any]:
     Returns:
         Dictionary with detailed health and performance metrics.
     """
-    checks: Dict[str, Any] = {}
+    checks: dict[str, Any] = {}
 
     # Model information
     try:
@@ -133,7 +133,7 @@ async def deep_health_check() -> Dict[str, Any]:
         # Get L1 cache size from Prometheus gauge
         l1_size = CACHE_SIZE.labels(level="L1")._value.get()
 
-        cache_info: Dict[str, Any] = {
+        cache_info: dict[str, Any] = {
             "l1_enabled": cache.l1.is_enabled if hasattr(cache, "l1") else cache.is_enabled,
             "l1_size": l1_size,
         }

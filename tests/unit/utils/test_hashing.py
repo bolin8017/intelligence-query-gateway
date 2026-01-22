@@ -6,8 +6,6 @@ and deterministic hashing behavior.
 
 import hashlib
 
-import pytest
-
 from src.utils.hashing import generate_cache_key, normalize_text
 
 

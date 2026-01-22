@@ -9,7 +9,8 @@ Usage:
         --html=reports/batch_test_report.html --csv=reports/batch_test
 """
 
-from locust import HttpUser, task, between
+from locust import HttpUser, between, task
+
 from tests.load.utils.data_generator import generate_unique_query
 
 

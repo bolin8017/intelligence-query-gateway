@@ -86,7 +86,7 @@ class TestCacheServiceIntegration:
         results = [{"label": 0, "confidence": 0.9} for _ in range(4)]
 
         with patch("time.time", return_value=1000.0):
-            for query, result in zip(queries, results):
+            for query, result in zip(queries, results, strict=False):
                 cache_key = generate_cache_key(query)
                 await cache_service.set(cache_key, result)
 

@@ -11,7 +11,12 @@ from fastapi import Depends
 from src.core.config import Settings, get_settings
 from src.models.semantic_router import SemanticRouter
 from src.services.batching import BatchingService
-from src.services.cache import CacheProtocol, CacheService, RedisCacheService, TwoLevelCache
+from src.services.cache import (
+    CacheProtocol,
+    CacheService,
+    RedisCacheService,
+    TwoLevelCache,
+)
 from src.services.classifier import ClassifierService, ClassifyResult
 
 # Global service instances (initialized in lifespan)
