@@ -60,6 +60,10 @@ class Settings(BaseSettings):
         default="./models/router",
         description="Path to the trained model directory",
     )
+    hf_model_id: str = Field(
+        default="bolin8017/query-gateway-router",
+        description="Hugging Face model ID for auto-download if local model doesn't exist",
+    )
     model_device: Literal["cpu", "cuda", "mps"] = Field(
         default="cpu",
         description="Device for model inference",

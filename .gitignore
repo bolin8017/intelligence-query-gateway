@@ -48,7 +48,9 @@ env/
 .env.production
 
 # Models (large files, should be stored separately)
-/models/
+# Keep the models/ directory structure but ignore the actual model files
+/models/*
+!/models/.gitkeep
 *.pth
 *.pt
 *.ckpt

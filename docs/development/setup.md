@@ -22,10 +22,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # 3. Install dependencies
 pip install -e ".[dev]"
 
-# 4. Train model (or download pre-trained)
-python scripts/train_router.py --output-dir ./models/router
-
-# 5. Run service
+# 4. Run service (model auto-downloads on first run)
 python -m src.main
 
 # 6. Test API
@@ -140,7 +137,28 @@ pip install pytest
 
 ## Model Setup
 
-### Training the Model
+### Option 1: Auto-Download (Default)
+
+Models automatically download from Hugging Face Hub:
+
+```bash
+# Just run - model downloads on first startup
+python -m src.main
+
+# Downloads from: bolin8017/query-gateway-router (~270MB)
+# Cached in: ./models/router/ or ~/.cache/huggingface/
+```
+
+**Configuration**:
+```bash
+# Use different model (optional)
+export HF_MODEL_ID=your-username/your-model-name
+python -m src.main
+```
+
+### Option 2: Train Custom Model
+
+For custom training or experimentation:
 
 ```bash
 # Basic training
@@ -158,29 +176,20 @@ python scripts/train_router.py \
 python scripts/train_router.py \
   --output-dir ./models/router \
   --device cuda
+
+# Upload to Hugging Face (optional)
+huggingface-cli login
+python scripts/upload_model_to_hub.py
 ```
 
 **Training Time**: ~10-15 minutes on CPU, ~3-5 minutes on GPU
 
 **Output**: Creates `models/router/` with:
 - `config.json`
-- `pytorch_model.bin` or `model.safetensors`
+- `model.safetensors` (or `pytorch_model.bin`)
 - `tokenizer_config.json`
 - `vocab.txt`
 - Other tokenizer files
-
-### Using Pre-trained Model
-
-If a pre-trained model is available:
-
-```bash
-# Extract model files to models/router/
-tar -xzf router-model.tar.gz -C models/
-
-# Verify
-ls models/router/
-# Should show: config.json, pytorch_model.bin, tokenizer files
-```
 
 ## Running the Service
 
@@ -220,6 +229,7 @@ APP_DEBUG=true
 
 # Model
 MODEL_PATH=./models/router
+HF_MODEL_ID=bolin8017/query-gateway-router  # Auto-download if local missing
 MODEL_DEVICE=cpu
 
 # Batching
@@ -509,13 +519,17 @@ pip install -e ".[dev]"
 
 **Solution**:
 ```bash
+# Model auto-downloads by default
+# If download fails, check HF_MODEL_ID
+echo $HF_MODEL_ID
+
+# Or train locally
+python scripts/train_router.py --output-dir ./models/router
+
 # Verify model files exist
 ls -la models/router/
 
-# If missing, train model
-python scripts/train_router.py --output-dir ./models/router
-
-# Check MODEL_PATH environment variable
+# Check configuration
 echo $MODEL_PATH
 ```
 
@@ -614,6 +628,6 @@ After setup:
 ---
 
 **Maintained by**: Platform Team
-**Last updated**: 2026-01-22
+**Last updated**: 2026-01-23
 **Review cycle**: Quarterly
-**Recent changes**: Added Redis L2 cache configuration for local development
+**Recent changes**: Added model auto-download from Hugging Face Hub

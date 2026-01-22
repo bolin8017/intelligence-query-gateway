@@ -59,6 +59,7 @@ COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 
 # Copy application code
 COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 COPY --chown=appuser:appuser pyproject.toml ./
 
 # Create directories for models and logs (will be mounted or populated)
@@ -66,6 +67,9 @@ RUN mkdir -p models logs && chown -R appuser:appuser models logs
 
 # Switch to non-root user
 USER appuser
+
+# Set entrypoint
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 
 # Expose application port
 EXPOSE 8000

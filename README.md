@@ -21,12 +21,39 @@ This service implements a Semantic Router that classifies user queries based on 
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: Docker Compose (Recommended - No Training Required)
+
+Get started in seconds with pre-trained model auto-download:
+
+```bash
+# Clone the repository
+git clone https://github.com/bolin8017/intelligence-query-gateway.git
+cd intelligence-query-gateway
+
+# Start all services (model will auto-download on first run)
+docker compose up -d
+
+# Check service status
+docker compose ps
+
+# Test the API
+curl -X POST http://localhost:8080/v1/query-classify \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Summarize this article"}'
+```
+
+The first startup will download the pre-trained model from [Hugging Face Hub](https://huggingface.co/bolin8017/query-gateway-router) (~500MB). Subsequent starts will use the cached model.
+
+### Option 2: Local Development with Custom Training
+
+For development or custom model training:
+
+#### Prerequisites
 
 - Python 3.11+
 - Conda (recommended for environment management)
 
-### Installation
+#### Installation
 
 ```bash
 # Create and activate conda environment
@@ -37,7 +64,7 @@ conda activate query-gateway
 pip install -e ".[dev]"
 ```
 
-### Train the Model
+#### Train Your Own Model
 
 ```bash
 # Basic training with early stopping
@@ -54,7 +81,17 @@ Training features:
 - **LR scheduler**: Warmup + linear decay for optimal convergence
 - **Real-time monitoring**: View training progress in Grafana at `/d/model-training`
 
-### Run the Service
+#### Upload Your Model to Hugging Face (Optional)
+
+```bash
+# Login to Hugging Face (one-time setup)
+huggingface-cli login
+
+# Upload your trained model
+python scripts/upload_model_to_hub.py
+```
+
+#### Run the Service Locally
 
 ```bash
 # Development mode
@@ -66,7 +103,7 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000
 
 ## Deployment
 
-### Docker (Recommended)
+### Docker Deployment
 
 The project includes a complete Docker Compose stack with:
 - **Gateway**: Main application service (port 8080)
@@ -75,29 +112,42 @@ The project includes a complete Docker Compose stack with:
 - **Pushgateway**: Batch job metrics for training (port 9091)
 - **Grafana**: Visualization dashboards (port 3000)
 
-#### Quick Start with Docker Compose
+#### Model Download Options
 
+The Docker setup supports two model loading strategies:
+
+1. **Auto-download (Default)**: Models are automatically downloaded from Hugging Face Hub on first startup
+2. **Local mount**: Use locally trained models by mounting `./models` directory
+
+To use your own trained model:
 ```bash
-# 1. Build and start all services (Gateway, Redis, Prometheus, Grafana)
+# Train locally first
+python scripts/train_router.py --output-dir ./models/router
+
+# Then start Docker Compose (will use local model)
 docker compose up -d
+```
 
-# 2. Check service status
-docker compose ps
+#### Environment Configuration
 
-# 3. View logs
-docker compose logs -f gateway
+Configure model download via environment variables:
 
-# 4. Test API endpoints
-curl http://localhost:8080/health/ready
-curl -s http://localhost:8080/health/deep | jq '.checks.cache'
+```yaml
+# docker-compose.yml or .env file
+environment:
+  - HF_MODEL_ID=bolin8017/query-gateway-router  # Your HF model ID
+  - MODEL_PATH=/app/models/router                 # Local path
+```
 
-# 5. Access monitoring dashboards
-# Grafana: http://localhost:3000 (admin/admin)
-#   - Overview: /d/query-gateway-overview
-#     * Pie chart for Fast/Slow Path distribution
-#     * Color-coded confidence score trends (P50/P95/P99)
-#   - Training: /d/model-training
-# Prometheus: http://localhost:9090
+#### Monitoring Dashboards
+
+After starting the stack:
+- **Grafana**: http://localhost:3000 (admin/admin)
+  - Overview: `/d/query-gateway-overview`
+    * Pie chart for Fast/Slow Path distribution
+    * Color-coded confidence score trends (P50/P95/P99)
+  - Training: `/d/model-training`
+- **Prometheus**: http://localhost:9090
 ```
 
 #### Using Docker Directly

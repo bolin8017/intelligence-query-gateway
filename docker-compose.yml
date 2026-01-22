@@ -27,9 +27,9 @@ services:
 
     # Volume mounts
     volumes:
-      # Mount local models directory (for development)
-      # In production, models can be baked into image or use cloud storage
-      - ./models:/app/models:ro
+      # Mount local models directory (optional - for using locally trained models)
+      # If this directory doesn't exist, the model will auto-download from HF Hub
+      - ./models:/app/models
 
       # Optional: Mount logs directory for persistence
       - ./logs:/app/logs
@@ -44,6 +44,7 @@ services:
 
       # Model
       - MODEL_PATH=/app/models/router
+      - HF_MODEL_ID=bolin8017/query-gateway-router
       - MODEL_DEVICE=cpu
 
       # Batching

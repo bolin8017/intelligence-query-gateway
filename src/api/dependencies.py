@@ -105,6 +105,7 @@ async def init_services(settings: Settings) -> None:
         model_path=settings.model_path,
         device=settings.model_device,
         max_length=settings.model_max_length,
+        hf_model_id=settings.hf_model_id,
     )
     _semantic_router.load()
 

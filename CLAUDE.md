@@ -50,6 +50,53 @@ conda activate query-gateway
 pip install -e ".[dev]"
 ```
 
+## Model Management
+
+### Quick Start (No Training Required)
+
+The project supports **automatic model download** from Hugging Face Hub:
+
+```bash
+# Just start the service - model downloads automatically
+docker compose up -d
+
+# Or run locally (model downloads on first run if not found)
+python -m src.main
+```
+
+**Default model**: `bolin8017/query-gateway-router` on Hugging Face Hub (~500MB)
+
+### Using Your Own Model
+
+**Option 1: Train Locally**
+```bash
+python scripts/train_router.py --output-dir ./models/router
+```
+
+**Option 2: Use Different HF Model**
+```bash
+# Set environment variable
+export HF_MODEL_ID=your-username/your-model-name
+
+# Or in docker-compose.yml
+environment:
+  - HF_MODEL_ID=your-username/your-model-name
+```
+
+### Upload Model to Hugging Face Hub
+
+Share your trained model:
+
+```bash
+# 1. Login (one-time setup)
+huggingface-cli login
+
+# 2. Upload your model
+python scripts/upload_model_to_hub.py
+```
+
+Edit [scripts/upload_model_to_hub.py](scripts/upload_model_to_hub.py) to change the target repository ID.
+
 ## Model Training
 
 Train the SemanticRouter model with early stopping and LR scheduling:

@@ -6,10 +6,10 @@ Production deployment procedures for the Intelligence Query Gateway.
 
 ### Required
 - Docker 20.10+ and docker compose 2.x
-- Trained model artifacts (see [Model Training](#model-training))
 - 4GB+ RAM, 2+ CPU cores
 
 ### Optional
+- Trained model artifacts (auto-downloads from Hugging Face if not provided)
 - Kubernetes cluster (for production orchestration)
 - Redis 7+ instance (for L2 distributed cache)
 - Prometheus + Grafana (for monitoring)
@@ -25,12 +25,11 @@ The Docker Compose stack includes:
 - **Grafana**: Visualization dashboards (port 3000)
 
 ```bash
-# 1. Ensure model files exist
-ls -la models/router/
-# Should contain: config.json, pytorch_model.bin, tokenizer_config.json
-
-# 2. Start all services (Gateway + Redis + Monitoring)
+# 1. Start all services (model auto-downloads on first run)
 docker compose up -d
+
+# 2. Monitor startup (first run downloads model from Hugging Face)
+docker compose logs -f gateway
 
 # 3. Verify services are running
 docker compose ps
@@ -51,48 +50,73 @@ curl -X POST http://localhost:8080/v1/query-classify \
 # Prometheus: http://localhost:9090
 ```
 
+**Note**: First startup may take 1-2 minutes to download the model (~270MB). Subsequent starts are instant.
+
 ### Using Docker
 
 ```bash
 # 1. Build image
 docker build -t query-gateway:latest .
 
-# 2. Run container
+# 2. Run container (model auto-downloads)
+docker run -d \
+  --name query-gateway \
+  -p 8000:8000 \
+  -e HF_MODEL_ID=bolin8017/query-gateway-router \
+  -e APP_ENV=prod \
+  -e LOG_FORMAT=json \
+  query-gateway:latest
+
+# Or with local model (skip download)
 docker run -d \
   --name query-gateway \
   -p 8000:8000 \
   -v $(pwd)/models:/app/models:ro \
   -e MODEL_PATH=/app/models/router \
   -e APP_ENV=prod \
-  -e LOG_FORMAT=json \
   query-gateway:latest
 
-# 3. Check logs
+# 3. Monitor startup (watch model download)
 docker logs -f query-gateway
 
 # 4. Verify health
 curl http://localhost:8000/health/live
 ```
 
-## Model Training
+## Model Management
 
-Before deployment, train the semantic router model:
+### Option 1: Auto-Download (Default)
+
+Models are automatically downloaded from Hugging Face Hub on first startup:
 
 ```bash
-# Using Python directly
+# No action needed - just start the service
+docker compose up -d
+
+# Model downloads from: bolin8017/query-gateway-router
+# Configurable via HF_MODEL_ID environment variable
+```
+
+### Option 2: Custom Model Training
+
+Train your own model for customization:
+
+```bash
+# Train locally
 python scripts/train_router.py \
   --output-dir ./models/router \
   --epochs 3 \
   --batch-size 16
 
-# Or use pre-trained model (if available)
-# Download and extract to ./models/router/
+# Upload to Hugging Face (optional)
+huggingface-cli login
+python scripts/upload_model_to_hub.py
 ```
 
-Expected output in `models/router/`:
+Expected model files (auto-generated):
 ```
 config.json
-pytorch_model.bin
+model.safetensors (or pytorch_model.bin)
 tokenizer_config.json
 special_tokens_map.json
 tokenizer.json

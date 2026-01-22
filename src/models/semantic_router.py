@@ -17,6 +17,7 @@ from transformers import (
 )
 
 from src.core.logging import get_logger
+from src.utils.model_downloader import ensure_model_exists
 
 logger = get_logger(__name__)
 
@@ -58,6 +59,7 @@ class SemanticRouter:
         model_path: str | Path,
         device: Literal["cpu", "cuda", "mps"] = "cpu",
         max_length: int = 512,
+        hf_model_id: str | None = None,
     ) -> None:
         """Initialize the SemanticRouter.
 
@@ -65,12 +67,15 @@ class SemanticRouter:
             model_path: Path to the trained model directory.
             device: Device for inference ('cpu', 'cuda', or 'mps').
             max_length: Maximum token length for input sequences.
+            hf_model_id: Hugging Face model ID for auto-download if local
+                model doesn't exist. If None, auto-download is disabled.
 
         Raises:
-            FileNotFoundError: If model_path does not exist.
+            FileNotFoundError: If model_path does not exist and hf_model_id is None.
             RuntimeError: If model loading fails.
         """
         self.model_path = Path(model_path)
+        self.hf_model_id = hf_model_id
         self.device = torch.device(device)
         self.max_length = max_length
 
@@ -81,6 +86,7 @@ class SemanticRouter:
         logger.info(
             "SemanticRouter initialized",
             model_path=str(self.model_path),
+            hf_model_id=hf_model_id,
             device=device,
             max_length=max_length,
         )
@@ -96,16 +102,30 @@ class SemanticRouter:
         This should be called during application startup, not on first request,
         to avoid cold-start latency.
 
+        If the model doesn't exist locally and hf_model_id is provided,
+        it will be automatically downloaded from Hugging Face Hub.
+
         Raises:
-            FileNotFoundError: If model path does not exist.
+            FileNotFoundError: If model path does not exist and hf_model_id is None.
             RuntimeError: If model loading fails.
         """
         if self._is_loaded:
             logger.warning("Model already loaded, skipping reload")
             return
 
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"Model not found at {self.model_path}")
+        # Ensure model exists (download if necessary)
+        if not self.model_path.exists() and self.hf_model_id:
+            logger.info(
+                "Model not found locally, attempting auto-download",
+                local_path=str(self.model_path),
+                hf_model_id=self.hf_model_id,
+            )
+            self.model_path = ensure_model_exists(self.model_path, self.hf_model_id)
+        elif not self.model_path.exists():
+            raise FileNotFoundError(
+                f"Model not found at {self.model_path}. "
+                f"Either train a model locally or provide hf_model_id for auto-download."
+            )
 
         logger.info("Loading model", path=str(self.model_path))
 

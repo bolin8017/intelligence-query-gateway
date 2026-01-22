@@ -30,8 +30,8 @@ The Intelligence Query Gateway is a production-grade semantic router that classi
 │                  Service Layer (services/)                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │TwoLevelCache│→ │BatchService │→ │ ClassifierService   │  │
-│  │  L1: LRU    │  │ (Queue+Timer)│  │ (Model Inference)  │  │
-│  │  L2: Redis  │  │              │  │                     │  │
+│  │  L1: LRU    │  │(Queue+Timer)│  │  (Model Inference)  │  │
+│  │  L2: Redis  │  │             │  │                     │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 └─────────────────┬───────────────────────────────────────────┘
                   │
@@ -314,7 +314,8 @@ With Redis L2:
 | Variable | Default | Production | Description |
 |----------|---------|------------|-------------|
 | `APP_ENV` | dev | prod | Environment mode |
-| `MODEL_PATH` | - | /app/models/router | Path to trained model |
+| `MODEL_PATH` | ./models/router | /app/models/router | Path to model (auto-downloads if missing) |
+| `HF_MODEL_ID` | bolin8017/query-gateway-router | - | Hugging Face model for auto-download |
 | `MODEL_DEVICE` | cpu | cpu/cuda | Inference device |
 | `BATCH_MAX_SIZE` | 32 | 32-64 | Max requests per batch |
 | `BATCH_MAX_WAIT_MS` | 10 | 5-15 | Max batch wait time |
