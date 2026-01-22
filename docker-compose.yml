@@ -90,12 +90,6 @@ services:
           cpus: '1'
           memory: 2G
 
-    # Depends on Redis if profile is active
-    # depends_on:
-    #   redis:
-    #     condition: service_healthy
-    #     required: false
-
     # Service dependencies
     depends_on:
       redis:
