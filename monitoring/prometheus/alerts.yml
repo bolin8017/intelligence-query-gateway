@@ -1,0 +1,250 @@
+# ============================================================================
+# Prometheus Alert Rules for Intelligence Query Gateway
+# ============================================================================
+#
+# This file defines alerting rules based on Service Level Objectives (SLOs)
+# and operational thresholds.
+#
+# Reference: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+# Google SRE Best Practices: https://sre.google/sre-book/monitoring-distributed-systems/
+# ============================================================================
+
+groups:
+  # ==========================================================================
+  # Service Level Indicators (SLI) & Objectives (SLO) Based Alerts
+  # ==========================================================================
+  - name: query_gateway_slo_alerts
+    interval: 30s
+    rules:
+      # ----------------------------------------------------------------------
+      # SLO: P99 Latency < 100ms (for non-cached requests)
+      # ----------------------------------------------------------------------
+      - alert: HighP99Latency
+        expr: |
+          histogram_quantile(0.99,
+            rate(query_gateway_request_latency_seconds_bucket{endpoint="/v1/query-classify"}[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: gateway
+          slo: latency
+        annotations:
+          summary: "High P99 latency detected"
+          description: "P99 latency is {{ $value | humanizeDuration }} (SLO: < 100ms)"
+          impact: "User experience degraded - requests taking longer than expected"
+          action: "Check batch processing efficiency and model inference time"
+
+      # ----------------------------------------------------------------------
+      # SLO: Error Rate < 0.1%
+      # ----------------------------------------------------------------------
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(query_gateway_requests_total{status="error"}[5m]))
+            /
+            sum(rate(query_gateway_requests_total[5m]))
+          ) > 0.001
+        for: 2m
+        labels:
+          severity: critical
+          component: gateway
+          slo: availability
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (SLO: < 0.1%)"
+          impact: "Service reliability compromised - users experiencing failures"
+          action: "Check application logs for error details and investigate root cause"
+
+      # ----------------------------------------------------------------------
+      # SLO: Cache Hit Rate > 30% (under normal load)
+      # ----------------------------------------------------------------------
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            sum(rate(query_gateway_cache_hits_total[10m]))
+            /
+            (sum(rate(query_gateway_cache_hits_total[10m])) + sum(rate(query_gateway_cache_misses_total[10m])))
+          ) < 0.3
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+          slo: efficiency
+        annotations:
+          summary: "Cache hit rate is low"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (expected: > 30%)"
+          impact: "Increased latency and load on model inference"
+          action: "Review cache configuration (size, TTL) and query patterns"
+
+  # ==========================================================================
+  # Service Availability Alerts
+  # ==========================================================================
+  - name: query_gateway_availability_alerts
+    interval: 30s
+    rules:
+      # ----------------------------------------------------------------------
+      # Service is down
+      # ----------------------------------------------------------------------
+      - alert: ServiceDown
+        expr: up{job="query-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: gateway
+        annotations:
+          summary: "Query Gateway service is down"
+          description: "The service has been unreachable for more than 1 minute"
+          impact: "Service completely unavailable - all requests failing"
+          action: "Check container status, logs, and restart if necessary"
+
+      # ----------------------------------------------------------------------
+      # Model not loaded
+      # ----------------------------------------------------------------------
+      - alert: ModelNotReady
+        expr: query_gateway_model_loaded == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: model
+        annotations:
+          summary: "ML model is not loaded"
+          description: "The classification model failed to load or was unloaded"
+          impact: "Service cannot process classification requests"
+          action: "Check model files, memory availability, and application logs"
+
+      # ----------------------------------------------------------------------
+      # High number of active requests (potential overload)
+      # ----------------------------------------------------------------------
+      - alert: HighConcurrentRequests
+        expr: query_gateway_active_requests > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: gateway
+        annotations:
+          summary: "High number of concurrent requests"
+          description: "{{ $value }} requests are currently being processed"
+          impact: "System under heavy load - potential for increased latency"
+          action: "Consider scaling up or implementing rate limiting"
+
+  # ==========================================================================
+  # Performance & Efficiency Alerts
+  # ==========================================================================
+  - name: query_gateway_performance_alerts
+    interval: 30s
+    rules:
+      # ----------------------------------------------------------------------
+      # Batch queue depth too high
+      # ----------------------------------------------------------------------
+      - alert: HighBatchQueueDepth
+        expr: query_gateway_batch_queue_size > 100
+        for: 2m
+        labels:
+          severity: warning
+          component: batching
+        annotations:
+          summary: "Batch queue depth is high"
+          description: "Queue depth is {{ $value }} (threshold: 100)"
+          impact: "Requests waiting longer in queue - increased latency"
+          action: "Check batch processing throughput and consider tuning batch size"
+
+      # ----------------------------------------------------------------------
+      # Model inference time degraded
+      # ----------------------------------------------------------------------
+      - alert: SlowModelInference
+        expr: |
+          histogram_quantile(0.95,
+            rate(query_gateway_inference_latency_seconds_bucket[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "Model inference is slow"
+          description: "P95 inference latency is {{ $value | humanizeDuration }} (expected: < 50ms)"
+          impact: "Decreased throughput and increased overall latency"
+          action: "Check CPU/GPU utilization and model device configuration"
+
+      # ----------------------------------------------------------------------
+      # Small batch sizes (inefficient processing)
+      # ----------------------------------------------------------------------
+      - alert: IneffecientBatching
+        expr: |
+          histogram_quantile(0.5,
+            rate(query_gateway_inference_batch_size_bucket[10m])
+          ) < 4
+        for: 10m
+        labels:
+          severity: info
+          component: batching
+        annotations:
+          summary: "Average batch size is low"
+          description: "Median batch size is {{ $value }} (optimal: > 4)"
+          impact: "Not fully utilizing batch processing benefits"
+          action: "Review batch_max_wait_ms configuration or traffic patterns"
+
+  # ==========================================================================
+  # Cache Performance Alerts
+  # ==========================================================================
+  - name: query_gateway_cache_alerts
+    interval: 30s
+    rules:
+      # ----------------------------------------------------------------------
+      # Cache size near maximum
+      # ----------------------------------------------------------------------
+      - alert: CacheNearCapacity
+        expr: |
+          query_gateway_cache_size{level="L1"} > 9000
+        for: 5m
+        labels:
+          severity: info
+          component: cache
+        annotations:
+          summary: "L1 cache near capacity"
+          description: "Cache size is {{ $value }} entries (max: 10000)"
+          impact: "Increased cache evictions - potentially reduced hit rate"
+          action: "Consider increasing cache size if hit rate is suffering"
+
+      # ----------------------------------------------------------------------
+      # Cache completely full (should not happen with LRU)
+      # ----------------------------------------------------------------------
+      - alert: CacheFull
+        expr: |
+          query_gateway_cache_size{level="L1"} >= 10000
+        for: 1m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "L1 cache at maximum capacity"
+          description: "Cache is at maximum size ({{ $value }} entries)"
+          impact: "Every new entry causes eviction - potential for cache thrashing"
+          action: "Increase CACHE_L1_SIZE configuration parameter"
+
+  # ==========================================================================
+  # Confidence Score Alerts
+  # ==========================================================================
+  - name: query_gateway_quality_alerts
+    interval: 60s
+    rules:
+      # ----------------------------------------------------------------------
+      # High rate of low-confidence classifications
+      # ----------------------------------------------------------------------
+      - alert: HighLowConfidenceRate
+        expr: |
+          (
+            sum(rate(query_gateway_confidence_score_bucket{le="0.7"}[10m]))
+            /
+            sum(rate(query_gateway_confidence_score_count[10m]))
+          ) > 0.2
+        for: 10m
+        labels:
+          severity: info
+          component: model
+        annotations:
+          summary: "High rate of low-confidence classifications"
+          description: "{{ $value | humanizePercentage }} of classifications have confidence < 0.7"
+          impact: "Model may need retraining or queries are out of distribution"
+          action: "Review query patterns and consider model fine-tuning"

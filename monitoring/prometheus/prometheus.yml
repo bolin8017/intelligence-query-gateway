@@ -1,0 +1,90 @@
+# ============================================================================
+# Prometheus Configuration for Intelligence Query Gateway
+# ============================================================================
+#
+# This configuration defines how Prometheus collects metrics from the
+# Query Gateway service and sets up alerting rules.
+#
+# Reference: https://prometheus.io/docs/prometheus/latest/configuration/
+# ============================================================================
+
+global:
+  # How frequently to scrape targets by default
+  scrape_interval: 15s
+
+  # How long until a scrape request times out
+  scrape_timeout: 10s
+
+  # How frequently to evaluate rules
+  evaluation_interval: 15s
+
+  # External labels to attach to any time series or alerts
+  # when communicating with external systems
+  external_labels:
+    cluster: 'query-gateway-dev'
+    environment: 'development'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Load rules files
+rule_files:
+  - 'alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # ========================================================================
+  # Query Gateway Service
+  # ========================================================================
+  - job_name: 'query-gateway'
+    # Override the global scrape interval for this job
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+    # Metrics path (note the trailing slash due to FastAPI mount)
+    metrics_path: '/metrics/'
+
+    # Scheme defaults to 'http'
+    scheme: http
+
+    # Static configuration for the gateway service
+    static_configs:
+      - targets: ['gateway:8000']
+        labels:
+          service: 'query-gateway'
+          component: 'api'
+
+    # Relabeling configuration (optional)
+    # This can be used to modify labels before ingestion
+    metric_relabel_configs:
+      # Drop metrics with high cardinality if needed
+      # - source_labels: [__name__]
+      #   regex: 'query_gateway_request_latency_seconds_bucket'
+      #   action: drop
+
+  # ========================================================================
+  # Prometheus Self-Monitoring
+  # ========================================================================
+  - job_name: 'prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          component: 'monitoring'
+
+  # ========================================================================
+  # Redis Cache (optional, if using Redis)
+  # ========================================================================
+  # Uncomment this section if you're using Redis with redis_exporter
+  # - job_name: 'redis'
+  #   scrape_interval: 15s
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+  #       labels:
+  #         service: 'redis'
+  #         component: 'cache'
