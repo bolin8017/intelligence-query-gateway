@@ -92,6 +92,8 @@ curl -s http://localhost:8080/health/deep | jq '.checks.cache'
 # 5. Access monitoring dashboards
 # Grafana: http://localhost:3000 (admin/admin)
 #   - Overview: /d/query-gateway-overview
+#     * Pie chart for Fast/Slow Path distribution
+#     * Color-coded confidence score trends (P50/P95/P99)
 #   - Training: /d/model-training
 # Prometheus: http://localhost:9090
 ```

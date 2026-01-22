@@ -239,10 +239,13 @@ The main dashboard provides a comprehensive view with 12 panels:
 
 #### Time-Series Panels
 - **Latency Analysis**: P50/P95/P99 over time
-- **Cache Performance**: Hit/miss rate trends
-- **Batch Efficiency**: Batch size distribution
-- **Model Inference**: Inference latency percentiles
-- **Classification Quality**: Label distribution and confidence scores
+- **Cache Performance**: Hit/miss rate trends by level (L1/L2)
+- **Batch Efficiency**: Batch size distribution (P50/P95)
+- **Model Inference**: Inference latency percentiles (P50/P95/P99)
+- **Classification Distribution**: Pie chart (donut) showing Fast Path vs Slow Path ratio
+- **Confidence Score Distribution**: Smooth time-series with P50/P95/P99 percentiles
+  - Color-coded: P50 (blue), P95 (green), P99 (orange)
+  - Red threshold line at 0.7 for quick anomaly detection
 
 **Auto-refresh**: 10 seconds
 **Default time range**: Last 15 minutes
