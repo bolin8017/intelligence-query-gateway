@@ -38,8 +38,19 @@ pip install -e ".[dev]"
 ### Train the Model
 
 ```bash
+# Basic training with early stopping
 python scripts/train_router.py --output-dir ./models/router
+
+# With real-time monitoring (requires Docker Compose stack)
+python scripts/train_router.py \
+  --output-dir ./models/router \
+  --pushgateway-url http://localhost:9091
 ```
+
+Training features:
+- **Early stopping**: Automatically stops when validation loss converges (patience=3)
+- **LR scheduler**: Warmup + linear decay for optimal convergence
+- **Real-time monitoring**: View training progress in Grafana at `/d/model-training`
 
 ### Run the Service
 
@@ -59,6 +70,7 @@ The project includes a complete Docker Compose stack with:
 - **Gateway**: Main application service (port 8080)
 - **Redis**: L2 distributed cache (port 6379)
 - **Prometheus**: Metrics collection (port 9090)
+- **Pushgateway**: Batch job metrics for training (port 9091)
 - **Grafana**: Visualization dashboards (port 3000)
 
 #### Quick Start with Docker Compose
@@ -79,6 +91,8 @@ curl -s http://localhost:8080/health/deep | jq '.checks.cache'
 
 # 5. Access monitoring dashboards
 # Grafana: http://localhost:3000 (admin/admin)
+#   - Overview: /d/query-gateway-overview
+#   - Training: /d/model-training
 # Prometheus: http://localhost:9090
 ```
 
@@ -333,8 +347,12 @@ See [Testing Guide](docs/development/testing.md) for detailed instructions.
 | F1 Score | **98.95%** |
 | Precision | **98.22%** |
 | Recall | **99.70%** |
-| Training Time | 3 minutes (RTX 2060, FP16) |
 | Dataset Size | 9,966 samples (4 categories) |
+
+**Training Configuration**:
+- Early stopping with patience=3 epochs
+- Warmup + linear decay LR scheduler
+- Real-time metrics via Prometheus Pushgateway
 
 **Category Mapping**:
 - Fast Path (0): `classification`, `summarization`

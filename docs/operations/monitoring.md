@@ -39,6 +39,7 @@ Application (FastAPI)
 | **Query Gateway** | 8080 | Application server |
 | **Redis** | 6379 | L2 distributed cache |
 | **Prometheus** | 9090 | Metrics collection and alerting |
+| **Pushgateway** | 9091 | Batch job metrics (model training) |
 | **Grafana** | 3000 | Visualization dashboards |
 
 ## Quick Start
@@ -144,6 +145,47 @@ query_gateway_batch_wait_time_seconds
 query_gateway_model_loaded
 ```
 
+#### Training Metrics (via Pushgateway)
+
+Step-level metrics (updated every N steps during training):
+
+```promql
+# Current training step
+router_training_global_step{run_id="..."}
+
+# Real-time training loss
+router_training_step_train_loss{run_id="..."}
+
+# Current learning rate
+router_training_step_learning_rate{run_id="..."}
+
+# Gradient norm (for detecting explosion/vanishing)
+router_training_step_gradient_norm{run_id="..."}
+```
+
+Epoch-level metrics (updated after each epoch):
+
+```promql
+# Epoch number
+router_training_epoch{run_id="..."}
+
+# Training and validation loss
+router_training_epoch_train_loss{run_id="..."}
+router_training_val_loss{run_id="..."}
+router_training_best_val_loss{run_id="..."}
+
+# Validation performance
+router_training_val_accuracy{run_id="..."}
+router_training_val_f1{run_id="..."}
+router_training_val_precision{run_id="..."}
+router_training_val_recall{run_id="..."}
+
+# Training status
+router_training_training_active{run_id="..."}  # 1=running, 0=stopped
+router_training_early_stopped{run_id="..."}    # 1=yes, 0=no
+router_training_patience_counter{run_id="..."}
+```
+
 ### Common PromQL Queries
 
 ```promql
@@ -204,6 +246,43 @@ The main dashboard provides a comprehensive view with 12 panels:
 
 **Auto-refresh**: 10 seconds
 **Default time range**: Last 15 minutes
+
+### Model Training Dashboard
+
+Monitors the SemanticRouter model training process in real-time.
+
+**Access**: http://localhost:3000/d/model-training
+
+#### Training Run Selection
+
+Use the **Training Run** dropdown at the top to:
+- Select a single run to view
+- Select multiple runs for comparison
+- Select "All" to view historical data
+
+#### Dashboard Sections
+
+**Training Status (Top Row)**
+- Status: Running/Stopped indicator
+- Global Step: Current training step
+- Epoch: Current epoch number
+- Current Loss: Real-time training loss
+- Best Val Loss: Lowest validation loss achieved
+- Val F1: Latest validation F1 score
+- Patience: Early stopping counter (gauge)
+- Early Stop: Whether training was early stopped
+
+**Real-Time Training (Step-Level)**
+- Training Loss: Step-by-step loss curve
+- Learning Rate: LR schedule visualization
+- Gradient Norm: Monitors gradient health (threshold at 5.0)
+
+**Epoch-Level Metrics**
+- Epoch Loss Curves: Train/Val/Best Val loss per epoch
+- Validation Metrics: Accuracy, F1, Precision, Recall
+
+**Auto-refresh**: 5 seconds
+**Default time range**: Last 30 minutes
 
 ### Custom Dashboards
 
@@ -521,6 +600,22 @@ docker exec query-gateway-grafana wget -O- http://prometheus:9090/api/v1/query?q
 # Ensure "Last 15 minutes" is selected in Grafana UI
 ```
 
+### Training Dashboard Shows "No Data"
+
+```bash
+# Verify Pushgateway is running
+curl http://localhost:9091/metrics
+
+# Check Prometheus scrapes Pushgateway
+curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | select(.labels.job=="pushgateway")'
+
+# Reload Prometheus config if needed
+curl -X POST http://localhost:9090/-/reload
+
+# Verify training metrics exist
+curl -s 'http://localhost:9090/api/v1/query?query=router_training_training_active' | jq '.data.result'
+```
+
 ### High Cardinality Warnings
 
 If Prometheus warnings about high cardinality:
@@ -570,4 +665,4 @@ curl -s http://localhost:9090/api/v1/status/tsdb \
 **Maintained by**: Platform Team
 **Last updated**: 2026-01-22
 **Review cycle**: Quarterly
-**Recent changes**: Added L2 Redis cache metrics and monitoring queries
+**Recent changes**: Added model training dashboard with run_id filtering

@@ -151,6 +151,40 @@ services:
         max-file: "3"
 
   # ============================================================================
+  # Prometheus Pushgateway - For Batch Job Metrics (Model Training)
+  # ============================================================================
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: query-gateway-pushgateway
+
+    ports:
+      - "9091:9091"
+
+    command:
+      - '--persistence.file=/pushgateway/metrics'
+      - '--persistence.interval=5m'
+
+    volumes:
+      - pushgateway-data:/pushgateway
+
+    restart: unless-stopped
+
+    networks:
+      - monitoring
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9091/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
   # Prometheus - Metrics Collection & Alerting
   # ============================================================================
   prometheus:
@@ -180,6 +214,7 @@ services:
 
     depends_on:
       - gateway
+      - pushgateway
 
     networks:
       - monitoring
@@ -271,6 +306,10 @@ volumes:
 
   # Grafana configuration and dashboards
   grafana-data:
+    driver: local
+
+  # Pushgateway metrics persistence
+  pushgateway-data:
     driver: local
 
   # Optional: Redis data (uncomment if using Redis with persistence)

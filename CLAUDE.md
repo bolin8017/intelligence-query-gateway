@@ -48,10 +48,37 @@ conda activate query-gateway
 
 # Install dependencies (editable with dev extras)
 pip install -e ".[dev]"
-
-# Train the model (if models/router doesn't exist)
-python scripts/train_router.py --output-dir ./models/router
 ```
+
+## Model Training
+
+Train the SemanticRouter model with early stopping and LR scheduling:
+
+```bash
+# Basic training (uses early stopping, patience=3)
+python scripts/train_router.py --output-dir ./models/router
+
+# With Prometheus monitoring (requires Pushgateway at localhost:9091)
+python scripts/train_router.py \
+  --output-dir ./models/router \
+  --pushgateway-url http://localhost:9091
+
+# Custom hyperparameters
+python scripts/train_router.py \
+  --output-dir ./models/router \
+  --max-epochs 20 \
+  --patience 5 \
+  --learning-rate 3e-5 \
+  --batch-size 16 \
+  --warmup-ratio 0.1 \
+  --log-interval 50
+```
+
+Training features:
+- **Early stopping**: Stops when validation loss doesn't improve for `patience` epochs
+- **LR scheduler**: Warmup + linear decay (industry standard for BERT models)
+- **Step-level metrics**: Real-time loss/LR/gradient monitoring via Pushgateway
+- **Grafana dashboard**: http://localhost:3000/d/model-training
 
 ## Running the Service
 
@@ -79,7 +106,10 @@ docker compose logs -f gateway
 ### Service Endpoints
 - **API**: http://localhost:8000 (or 8080 with Docker Compose)
 - **Prometheus**: http://localhost:9090
+- **Pushgateway**: http://localhost:9091
 - **Grafana**: http://localhost:3000 (admin/admin)
+  - Overview Dashboard: `/d/query-gateway-overview`
+  - Training Dashboard: `/d/model-training`
 
 ## Testing Commands
 
@@ -177,11 +207,13 @@ docker compose restart gateway
 
 ## Known Considerations
 
-1. **Model Training**: The model is trained on databricks-dolly-15k dataset. Some summarization samples contain QA-like keywords which may affect classification accuracy.
+1. **Model Training**: The model is trained on databricks-dolly-15k dataset. Uses early stopping (patience=3) and warmup+linear decay LR scheduler.
 
 2. **GPU Support**: Set `MODEL_DEVICE=cuda` for GPU inference (requires CUDA-enabled PyTorch).
 
 3. **Redis Optional**: L2 cache is optional. Without Redis, only L1 in-memory cache is used.
+
+4. **Training Metrics**: Each training run has a unique `run_id`. Use Grafana's "Training Run" selector to filter or compare runs.
 
 ## Documentation
 

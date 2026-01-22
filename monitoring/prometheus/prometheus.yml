@@ -78,6 +78,18 @@ scrape_configs:
           component: 'monitoring'
 
   # ========================================================================
+  # Pushgateway (for batch jobs like model training)
+  # ========================================================================
+  - job_name: 'pushgateway'
+    scrape_interval: 10s
+    honor_labels: true  # Preserve job labels from pushed metrics
+    static_configs:
+      - targets: ['pushgateway:9091']
+        labels:
+          service: 'pushgateway'
+          component: 'training'
+
+  # ========================================================================
   # Redis Cache (optional, if using Redis)
   # ========================================================================
   # Uncomment this section if you're using Redis with redis_exporter
