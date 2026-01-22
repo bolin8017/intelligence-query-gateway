@@ -1,5 +1,7 @@
 # Intelligence Query Gateway
 
+[![CI](https://github.com/bolin8017/intelligence-query-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/bolin8017/intelligence-query-gateway/actions/workflows/ci.yml)
+
 A semantic router gateway microservice for classifying queries into Fast Path or Slow Path.
 
 ## Overview
